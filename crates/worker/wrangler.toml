@@ -1,0 +1,13 @@
+name = "base"
+main = "build/worker/shim.mjs"
+compatibility_date = "2026-11-01"
+
+[build]
+command = "worker-build --release"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "base"
+# Replace with the id from `npx wrangler d1 create base` before deploying.
+# Any value works for local `wrangler dev`.
+database_id = "00000000-0000-0000-0000-000000000000"

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'">
+<title>base</title>
+<style>
+:root{color-scheme:light dark;--bg:#fafafa;--fg:#1a1a1a;--mut:#737373;--line:#e5e5e5;--card:#fff;--acc:#333;--onacc:#fff;--bad:#b91c1c}
+@media(prefers-color-scheme:dark){:root{--bg:#161616;--fg:#e5e5e5;--mut:#a3a3a3;--line:#2e2e2e;--card:#1f1f1f;--acc:#d4d4d4;--onacc:#161616;--bad:#f87171}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;gap:.5rem;align-items:center;padding:.6rem 1rem;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{margin-right:auto;font-size:16px}
+input,textarea,button{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.35rem .55rem}
+button{cursor:pointer}button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);border-color:var(--acc);color:var(--onacc)}
+button.del{color:var(--bad)}
+main{display:grid;grid-template-columns:200px minmax(0,1fr) minmax(0,1.2fr);gap:1rem;padding:1rem;align-items:start}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.75rem;min-width:0}
+h2{margin:0 0 .5rem;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut)}
+ul{list-style:none;margin:0;padding:0}
+li{padding:.3rem .5rem;border-radius:6px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+li:hover{background:var(--bg)}li.sel{background:var(--acc);color:var(--onacc)}
+li small{color:var(--mut);margin-left:.5rem}li.sel small{color:var(--onacc);opacity:.8}
+.row{display:flex;gap:.4rem;margin-bottom:.5rem}.row>input{flex:1;min-width:0}
+textarea{width:100%;height:320px;font-family:ui-monospace,monospace;font-size:13px;resize:vertical}
+#msg{padding:0 1rem;min-height:1.4em;color:var(--mut)}#msg.err{color:var(--bad)}
+.mut{color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <b>base</b>
+  <input id="token" type="password" placeholder="API key (empty if no auth)" size="26" autocomplete="off">
+  <button id="connect" class="pri">Connect</button>
+</header>
+<div id="msg"></div>
+<main>
+  <section>
+    <h2>Databases</h2>
+    <div class="row"><input id="newdb" placeholder="new-db"><button id="mkdb">+</button></div>
+    <ul id="dbs"></ul>
+    <p class="mut" id="dbact" hidden><button class="del" id="rmdb">Delete database</button></p>
+  </section>
+  <section>
+    <h2>Documents <span id="dbname" class="mut"></span></h2>
+    <div class="row"><input id="sel" placeholder='selector, e.g. {"age":{"$gt":20}}'><button id="find">Find</button></div>
+    <ul id="docs"></ul>
+  </section>
+  <section>
+    <h2 id="edtitle">Editor</h2>
+    <div class="row"><input id="docid" placeholder="id (blank = generate)"><button id="newdoc">New</button></div>
+    <textarea id="body" spellcheck="false">{}</textarea>
+    <div class="row" style="margin:.5rem 0 0">
+      <button id="save" class="pri">Save</button>
+      <button id="rmdoc" class="del">Delete</button>
+    </div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let token = '', db = null, cur = null; // cur = {id, rev} of the doc open in the editor
+
+try { token = localStorage.getItem('base_token') || ''; } catch (e) {}
+$('#token').value = token;
+
+function say(text, err) { const m = $('#msg'); m.textContent = text || ''; m.className = err ? 'err' : ''; }
+
+async function api(method, path, body) {
+  const headers = {};
+  if (token) headers.Authorization = 'Bearer ' + token;
+  if (body !== undefined) headers['content-type'] = 'application/json';
+  const r = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error(j && j.error ? j.error + ': ' + j.reason : 'HTTP ' + r.status);
+  return j;
+}
+const run = fn => async (...a) => { try { say(''); await fn(...a); } catch (e) { say(e.message, true); } };
+const enc = encodeURIComponent;
+
+function fill(ul, items, selected, onclick) {
+  ul.replaceChildren(...items.map(it => {
+    const li = document.createElement('li');
+    li.textContent = it.label;
+    if (it.hint) { const s = document.createElement('small'); s.textContent = it.hint; li.append(s); }
+    if (it.key === selected) li.className = 'sel';
+    li.onclick = () => onclick(it);
+    return li;
+  }));
+}
+
+async function loadDbs() {
+  const names = await api('GET', '/_all_dbs');
+  fill($('#dbs'), names.map(n => ({ key: n, label: n })), db, it => pickDb(it.key));
+}
+
+const pickDb = run(async name => {
+  db = name; cur = null;
+  $('#dbname').textContent = name; $('#dbact').hidden = false;
+  clearEditor();
+  await loadDbs(); await loadDocs();
+});
+
+async function loadDocs() {
+  if (!db) return;
+  const sel = $('#sel').value.trim();
+  let docs;
+  if (sel) {
+    docs = (await api('POST', '/' + enc(db) + '/_find', { selector: JSON.parse(sel), limit: 100 })).docs;
+  } else {
+    docs = (await api('GET', '/' + enc(db) + '/_all_docs?include_docs=true&limit=100')).rows.map(r => r.doc);
+  }
+  fill($('#docs'), docs.map(d => ({
+    key: d._id, label: d._id, hint: JSON.stringify(strip(d)).slice(0, 60), doc: d,
+  })), cur && cur.id, it => openDoc(it.doc));
+  if (!docs.length) $('#docs').textContent = 'No documents.';
+}
+
+function strip(d) { const { _id, _rev, ...rest } = d; return rest; }
+
+function openDoc(d) {
+  cur = { id: d._id, rev: d._rev };
+  $('#docid').value = d._id; $('#docid').disabled = true;
+  $('#body').value = JSON.stringify(strip(d), null, 2);
+  $('#edtitle').textContent = 'Editor · rev ' + d._rev;
+  run(loadDocs)();
+}
+
+function clearEditor() {
+  cur = null;
+  $('#docid').value = ''; $('#docid').disabled = false;
+  $('#body').value = '{}';
+  $('#edtitle').textContent = 'Editor · new';
+}
+
+$('#connect').onclick = run(async () => {
+  token = $('#token').value.trim();
+  try { localStorage.setItem('base_token', token); } catch (e) {}
+  await loadDbs();
+  say('Connected.');
+});
+
+$('#mkdb').onclick = run(async () => {
+  const n = $('#newdb').value.trim();
+  await api('PUT', '/' + enc(n));
+  $('#newdb').value = '';
+  await pickDb(n);
+});
+
+$('#rmdb').onclick = run(async () => {
+  if ($('#rmdb').dataset.arm !== db) {
+    $('#rmdb').dataset.arm = db; $('#rmdb').textContent = 'Click again to delete ' + db;
+    return;
+  }
+  await api('DELETE', '/' + enc(db));
+  $('#rmdb').dataset.arm = ''; $('#rmdb').textContent = 'Delete database';
+  db = null; $('#dbname').textContent = ''; $('#dbact').hidden = true;
+  $('#docs').replaceChildren(); clearEditor(); await loadDbs();
+});
+
+$('#find').onclick = run(loadDocs);
+$('#sel').onkeydown = e => { if (e.key === 'Enter') run(loadDocs)(); };
+$('#newdoc').onclick = () => { clearEditor(); run(loadDocs)(); };
+
+$('#save').onclick = run(async () => {
+  if (!db) throw new Error('Pick a database first.');
+  let doc;
+  try { doc = JSON.parse($('#body').value); } catch (e) { throw new Error('Invalid JSON: ' + e.message); }
+  let r;
+  if (cur) {
+    r = await api('PUT', '/' + enc(db) + '/' + enc(cur.id) + '?rev=' + enc(cur.rev), doc);
+  } else {
+    const id = $('#docid').value.trim();
+    r = id ? await api('PUT', '/' + enc(db) + '/' + enc(id), doc) : await api('POST', '/' + enc(db), doc);
+  }
+  say('Saved ' + r.id + ' (rev ' + r.rev + ').');
+  const fresh = await api('GET', '/' + enc(db) + '/' + enc(r.id));
+  openDoc(fresh);
+});
+
+$('#rmdoc').onclick = run(async () => {
+  if (!cur) throw new Error('Open a document first.');
+  await api('DELETE', '/' + enc(db) + '/' + enc(cur.id) + '?rev=' + enc(cur.rev));
+  say('Deleted ' + cur.id + '.');
+  clearEditor(); await loadDocs();
+});
+
+run(loadDbs)();
+</script>
+</body>
+</html>

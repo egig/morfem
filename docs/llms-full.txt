@@ -1,0 +1,331 @@
+
+# base
+
+Schemaless, transactional document database with a CouchDB-shaped HTTP API.
+SQLite underneath: `rusqlite` natively, D1 on Cloudflare Workers.
+
+- JSON documents, per-document integer revisions (`_rev`).
+- Mango queries (`_find`) with optional indexes.
+- Multi-document, multi-database transactions (`/_txn`) using optimistic concurrency.
+- Change feed (`_changes`) ordered by a global `seq`.
+- Bearer-token auth with `read`, `write`, `admin` roles, optionally scoped to databases.
+
+## Pages
+
+| page | covers |
+|---|---|
+| [Getting started](getting-started) | run locally, deploy to Cloudflare, first requests |
+| [HTTP API](api) | every endpoint, request and response shapes, errors |
+| [Queries](queries) | `_all_docs`, Mango `_find`, indexes, `_changes` |
+| [Transactions](transactions) | `/_txn`, reads, guards, conflicts |
+| [Auth and limits](auth-and-limits) | keys, roles, limits, naming rules |
+
+## For LLMs and agents
+
+- [llms.txt](llms.txt): short index.
+- [llms-full.txt](llms-full.txt): all documentation in one plain-text file.
+
+
+
+# Getting started
+
+## Run natively
+
+```sh
+BASE_KEYS='[{"key":"devkey-12345","access":"admin"}]' cargo run -p base-server
+# or, no auth (everyone is admin; local development only):
+cargo run -p base-server -- --no-auth
+```
+
+Server options:
+
+| flag | env | default |
+|---|---|---|
+| `--db` | `BASE_DB` | `base.db` (SQLite file) |
+| `--listen` | `BASE_LISTEN` | `127.0.0.1:5984` |
+| `--keys` | `BASE_KEYS` | none (every request is 401) |
+| `--no-auth` | | off |
+
+## Run on Cloudflare Workers
+
+Needs `cargo install worker-build` and `rustup target add wasm32-unknown-unknown`.
+
+```sh
+cd crates/worker
+npx wrangler dev          # keys come from .dev.vars
+```
+
+Deploy:
+
+```sh
+npx wrangler d1 create base            # put the id in wrangler.toml
+npx wrangler secret put BASE_KEYS
+npx wrangler deploy
+```
+
+`.dev.vars` example:
+
+```
+BASE_KEYS=[{"key":"devkey-12345","access":"admin"}]
+```
+
+## First requests
+
+```sh
+H='Authorization: Bearer devkey-12345'
+B=http://127.0.0.1:5984
+
+curl -X PUT  $B/notes -H "$H"                                  # {"ok":true}
+curl -X PUT  $B/notes/n1 -H "$H" -d '{"title":"hi","n":1}'     # {"ok":true,"id":"n1","rev":"1"}
+curl         $B/notes/n1 -H "$H"                               # {"_id":"n1","_rev":"1","title":"hi","n":1}
+curl -X PUT  $B/notes/n1 -H "$H" -d '{"_rev":"1","title":"hello","n":2}'   # rev "2"
+curl -X POST $B/notes/_find -H "$H" -d '{"selector":{"n":{"$gte":1}}}'
+curl -X DELETE "$B/notes/n1?rev=2" -H "$H"
+```
+
+## Admin page
+
+`GET /_ui` serves a static admin page. It is public and holds no data; it sends your token with each API call.
+`GET /` is also public and returns `{"name":"base","version":"..."}`.
+
+
+
+# HTTP API
+
+All bodies are JSON. Send `Authorization: Bearer <key>` on every request except `GET /` and `GET /_ui`.
+
+## Endpoints
+
+| method and path | access | notes |
+|---|---|---|
+| `GET /` | none | `{"name":"base","version":"0.1.0"}` |
+| `GET /_ui` | none | admin page (HTML) |
+| `GET /_all_dbs` | read | array of db names the key can read |
+| `PUT /{db}` | admin | create db. 201 `{"ok":true}`. 412 `file_exists` if present |
+| `GET /{db}` | read | `{"db_name","doc_count","update_seq"}` |
+| `DELETE /{db}` | admin | delete db with all docs and indexes. 200 `{"ok":true}` |
+| `POST /{db}` | write | create doc with generated id (or `_id` in body). 201 |
+| `GET /{db}/{id}` | read | the doc, with `_id` and `_rev` |
+| `PUT /{db}/{id}` | write | create or update. 201 `{"ok":true,"id","rev"}` |
+| `DELETE /{db}/{id}?rev=N` | write | delete. 200 `{"ok":true,"id","rev"}`. Leaves a tombstone |
+| `GET /{db}/_all_docs` | read | see [Queries](queries) |
+| `POST /{db}/_find` | read | see [Queries](queries) |
+| `GET /{db}/_changes` | read | see [Queries](queries) |
+| `GET /{db}/_index` | read | list indexes |
+| `POST /{db}/_index` | admin | create index |
+| `DELETE /{db}/_index/{name}` | admin | drop index |
+| `POST /_txn` | write | see [Transactions](transactions) |
+
+Wrong method on a known path: 405 `method_not_allowed`. Unknown `/{db}/_name`: 404.
+
+## Documents
+
+A document is a JSON object. `_id` and `_rev` are managed by base:
+
+- `_rev` is a per-document integer rendered as a string (`"1"`, `"2"`, ...). Only the latest revision is stored.
+- `PUT` without a `_rev` is create-only. If the doc exists, you get 409.
+- Update with `_rev` in the body or `?rev=` in the query. `?rev=` wins if both are given. A stale `_rev` gives 409.
+- `_id` in a `PUT` body must equal the path id.
+- Other top-level fields starting with `_` are rejected.
+- Deleting a doc then `PUT`ting it again without `_rev` re-creates it. `GET` of a deleted doc is 404 with reason `deleted`; a never-existing doc is 404 `missing`.
+
+```sh
+curl -X PUT $B/notes/n1 -d '{"title":"a"}'                      # 201 {"ok":true,"id":"n1","rev":"1"}
+curl -X PUT $B/notes/n1 -d '{"title":"b"}'                      # 409 conflict
+curl -X PUT "$B/notes/n1?rev=1" -d '{"title":"b"}'              # 201 rev "2"
+curl -X POST $B/notes -d '{"title":"auto id"}'                  # 201 {"ok":true,"id":"<generated>","rev":"1"}
+```
+
+## Errors
+
+Every error is `{"error":"<name>","reason":"<text>"}`.
+
+| status | error | meaning |
+|---|---|---|
+| 400 | `bad_request` | invalid JSON, name, id, selector, or parameter |
+| 401 | `unauthorized` | missing or unknown bearer token |
+| 403 | `forbidden` | key lacks the role or db scope |
+| 404 | `not_found` | db, doc, index, or endpoint missing |
+| 405 | `method_not_allowed` | |
+| 409 | `conflict` | stale or missing `_rev`, create over existing doc, failed guard, or index name clash |
+| 412 | `file_exists` | database already exists |
+| 413 | `too_large` | body over 2,000,000 bytes |
+| 500 | `internal_error` | details are not exposed |
+
+
+
+# Queries
+
+## `GET /{db}/_all_docs`
+
+Query parameters (plain strings, not JSON-encoded):
+
+| param | default | notes |
+|---|---|---|
+| `startkey` / `start_key` | | inclusive lower bound on id |
+| `endkey` / `end_key` | | inclusive upper bound on id |
+| `limit` | 25 | max 1000 |
+| `skip` | 0 | |
+| `descending` | false | |
+| `include_docs` | false | adds `doc` to each row |
+
+```json
+{"offset":0,"rows":[{"id":"n1","key":"n1","value":{"rev":"1"},"doc":{"_id":"n1","_rev":"1"}}],"update_seq":7}
+```
+
+Deleted docs are not listed.
+
+## `POST /{db}/_find` (Mango)
+
+```json
+{"selector":{"age":{"$gte":18},"addr":{"city":"Oslo"}},
+ "sort":["age",{"name":"desc"}],
+ "limit":10,"skip":0}
+```
+
+Response:
+
+```json
+{"docs":[{"_id":"...","_rev":"1","age":20}],"update_seq":7,"warning":"No matching index found, falling back to a scan of the database."}
+```
+
+- `selector` is required. `limit` defaults to 25, max 1000.
+- Results are ordered by `sort`, then by `id`. No `sort` = by id.
+- Field names are dotted paths of `[A-Za-z0-9_]` segments, e.g. `addr.city`. A plain nested object is a subfield match.
+- Operators: implicit `$eq`, `$eq $ne $gt $gte $lt $lte $in $nin $exists`, and `$and $or $nor $not`.
+- `warning` appears when no index covers the selector: the query scans the whole db.
+- `update_seq` can be used as a `db` guard in a [transaction](transactions) to protect against phantom reads.
+
+## Indexes
+
+```sh
+curl -X POST $B/notes/_index -d '{"fields":["age"],"name":"by_age"}'   # 201 {"result":"created","name":"by_age"}
+curl $B/notes/_index                                                    # {"indexes":[{"name":"by_age","fields":["age"]}]}
+curl -X DELETE $B/notes/_index/by_age                                   # {"ok":true}
+```
+
+- `fields`: 1 to 8 dotted paths. `name` optional (default: fields joined with `_`); `[A-Za-z0-9_]`, max 64.
+- Same name and same fields again: 200 `{"result":"exists"}`. Same name, different fields: 409.
+- A query is covered when its first index field appears in the selector.
+- Index creation on a large db is slow on D1.
+
+## `GET /{db}/_changes`
+
+| param | default | notes |
+|---|---|---|
+| `since` | 0 | return changes with `seq` greater than this |
+| `limit` | 100 | max 1000 |
+| `include_docs` | false | |
+
+```json
+{"results":[{"seq":5,"id":"n1","changes":[{"rev":"2"}],"doc":{"_id":"n1","_rev":"2"}},
+            {"seq":6,"id":"n2","changes":[{"rev":"3"}],"deleted":true}],
+ "last_seq":6}
+```
+
+- Latest state per doc only (not a history), ordered by `seq` then id.
+- Deleted docs appear with `"deleted":true` and no `doc`.
+- A transaction stamps all its writes with one `seq`; a page is never split in the middle of one `seq`, so it can exceed `limit`.
+- Poll with `since=<last_seq>`. No long-poll or SSE yet.
+
+
+
+# Transactions
+
+D1 has no interactive transactions, so base uses optimistic concurrency. You send reads you depended on, guards, and writes in one request. base validates and applies them in one atomic batch.
+
+```jsonc
+POST /_txn
+{
+  "reads":  [{"db":"acct","id":"a","rev":"1"}, {"db":"acct","id":"new"}],  // rev omitted = must be absent
+  "guards": [{"kind":"db","db":"acct","seq":42}],   // fail if anything in db changed after seq 42
+  "ops": [
+    {"op":"put","db":"acct","id":"a","rev":"1","doc":{"bal":50}},          // rev omitted = create only
+    {"op":"delete","db":"acct","id":"b","rev":"3"}
+  ]
+}
+// 200 {"ok":true,"seq":43,"results":[{"db":"acct","id":"a","rev":"2"}, ...]}
+// 409 on any stale rev or failed guard; nothing applied
+```
+
+Fields (all arrays optional):
+
+- `reads`: `{db, id, rev?}`. The doc must be at `rev`, or absent/deleted when `rev` is omitted. Checked per document.
+- `guards`: `{"kind":"db","db","seq"}`. Fails if any doc in `db` was written after `seq`. Use the `update_seq` returned by `_find` or `_all_docs` to protect a query result from phantoms.
+- `ops`: `put` (`rev` omitted = create only, else update from `rev`) and `delete` (`rev` required).
+
+Rules:
+
+- Max 50 ops, 100 reads, 20 guards. 1 MB per doc.
+- One op per document per transaction (duplicates are 400).
+- Writes need `write` on every db touched; reads and guards need `read`.
+- All writes share one global `seq`, returned as `seq`. `results` has one entry per op, in order.
+- Missing db: 404, nothing applied.
+
+## Retry pattern
+
+1. `GET` the docs, remember each `_rev`.
+2. Compute new values.
+3. `POST /_txn` with those revs in `ops` (and `reads` for docs you only read).
+4. On 409, go to step 1.
+
+## Cloudflare Free plan
+
+Free caps D1 queries per Worker invocation at 50. Each op costs about 3 statements, so large transactions need the Paid plan.
+
+
+
+# Auth and limits
+
+## Keys
+
+Send `Authorization: Bearer <key>`. Keys come from `BASE_KEYS`, a JSON array:
+
+```json
+[{"key":"admin-key-1234","access":"admin"},
+ {"key":"app-key-12345","access":"write","dbs":["notes"]},
+ {"key":"ro-key-12345","access":"read","dbs":["*"]}]
+```
+
+- `key`: 8 or more characters.
+- `access`: `read` < `write` < `admin`. Higher roles include lower ones.
+- `dbs`: databases the key may touch. Omitted or containing `"*"` = all.
+- No keys configured = every request is 401 (except `GET /` and `GET /_ui`).
+- Key comparison is constant-time.
+
+| role | can |
+|---|---|
+| `read` | `GET` docs, `_all_docs`, `_find`, `_changes`, `_index` (list), db info, `_all_dbs` |
+| `write` | read, plus create/update/delete docs, `/_txn` |
+| `admin` | write, plus create/delete databases, create/delete indexes |
+
+A key outside its role or `dbs` scope gets 403. `_all_dbs` only lists dbs the key can read.
+
+## Naming rules
+
+- Database: `[a-z0-9_-]`, 1 to 64 chars, must not start with `_` or `-`.
+- Document id: 1 to 256 chars, no control characters, must not start with `_`.
+- Index name: `[A-Za-z0-9_]`, max 64.
+- Field path (indexes, selectors, sort): dotted segments of `[A-Za-z0-9_]`, max 128.
+- Top-level doc fields starting with `_` are reserved (`_id`, `_rev` only).
+
+## Limits
+
+| | |
+|---|---|
+| request body | 2,000,000 bytes |
+| document | 1,000,000 bytes |
+| ops / reads / guards per `/_txn` | 50 / 100 / 20 |
+| `limit` on `_all_docs`, `_find` | max 1000 (default 25) |
+| `limit` on `_changes` | max 1000 (default 100) |
+| index fields | 1 to 8 |
+
+## Known limits
+
+- Only the latest revision of a doc is stored. Deletes leave tombstones; no compaction yet.
+- `_find` without an index scans the whole db.
+- `DELETE /{db}` on a very large db may exceed D1 per-request limits.
+- Queries inside a `/_txn` are not re-run at commit; use `db` guards.
+- No long-poll `_changes`, attachments, or replication.
+
+
