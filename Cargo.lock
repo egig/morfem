@@ -128,60 +128,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "base-engine"
-version = "0.1.0"
-dependencies = [
- "form_urlencoded",
- "percent-encoding",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "base-server"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base-engine",
- "base-sqlite",
- "clap",
- "tokio",
- "uuid",
-]
-
-[[package]]
-name = "base-sqlite"
-version = "0.1.0"
-dependencies = [
- "base-engine",
- "pollster",
- "rusqlite",
- "serde_json",
-]
-
-[[package]]
-name = "base-wasm"
-version = "0.1.0"
-dependencies = [
- "base-engine",
- "js-sys",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "base-worker"
-version = "0.1.0"
-dependencies = [
- "base-engine",
- "js-sys",
- "serde_json",
- "wasm-bindgen",
- "worker",
-]
-
-[[package]]
 name = "bitflags"
 version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -714,6 +660,60 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys",
+]
+
+[[package]]
+name = "morfem-engine"
+version = "0.1.0"
+dependencies = [
+ "form_urlencoded",
+ "percent-encoding",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "morfem-server"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "clap",
+ "morfem-engine",
+ "morfem-sqlite",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "morfem-sqlite"
+version = "0.1.0"
+dependencies = [
+ "morfem-engine",
+ "pollster",
+ "rusqlite",
+ "serde_json",
+]
+
+[[package]]
+name = "morfem-wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "morfem-engine",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "morfem-worker"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "morfem-engine",
+ "serde_json",
+ "wasm-bindgen",
+ "worker",
 ]
 
 [[package]]

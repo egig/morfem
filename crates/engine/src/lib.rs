@@ -1,4 +1,4 @@
-//! base-engine: schemaless, transactional document engine over a SQLite-like store.
+//! morfem-engine: schemaless, transactional document engine over a SQLite-like store.
 //! No runtime or IO dependencies; builds for native and `wasm32-unknown-unknown`.
 
 pub mod auth;

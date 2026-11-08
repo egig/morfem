@@ -1,21 +1,21 @@
-# @egig/base
+# morfem
 
 Schemaless, transactional document database with a CouchDB-shaped HTTP API, as an npm package.
 The engine is prebuilt WebAssembly: no Rust toolchain, no clone, no build step.
 You bring a SQLite (Node, Bun) or D1 (Cloudflare) handle.
 
 ```sh
-npm i @egig/base
+npm i morfem
 ```
 
 ## Node (>= 22.5)
 
 ```ts
 import { DatabaseSync } from "node:sqlite";
-import { createBase } from "@egig/base";
-import { sqliteStore } from "@egig/base/stores/sqlite";
+import { createMorfem } from "morfem";
+import { sqliteStore } from "morfem/stores/sqlite";
 
-const db = await createBase({
+const db = await createMorfem({
   store: sqliteStore(new DatabaseSync("app.db")),
   keys: [{ key: "devkey-12345", access: "admin" }],   // or { noAuth: true } for local dev
 });
@@ -31,26 +31,26 @@ await db.fetch(new Request("http://x/notes/a", { method: "PUT", headers: auth, b
 ## SDK (no HTTP)
 
 ```ts
-import { openFile } from "@egig/base/node";
+import { openFile } from "morfem/node";
 
-const base = await openFile("app.db");
-const notes = await base.createDb<{ title: string }>("notes");
+const morfem = await openFile("app.db");
+const notes = await morfem.createDb<{ title: string }>("notes");
 await notes.put("a", { title: "hi" });
 console.log(await notes.get("a"));
 console.log((await notes.find({ selector: { title: "hi" } })).docs);
 ```
 
-Typed `get/put/post/delete/update/find/allDocs/changes`, indexes, and `base.txn(...)`. No keys: the SDK is trusted. Full list: docs/npm.md.
+Typed `get/put/post/delete/update/find/allDocs/changes`, indexes, and `morfem.txn(...)`. No keys: the SDK is trusted. Full list: docs/npm.md.
 
 ## Cloudflare Workers (D1)
 
 ```ts
-import { createBase, d1Store } from "@egig/base/workers";
+import { createMorfem, d1Store } from "morfem/workers";
 
-let db: ReturnType<typeof createBase> | undefined;
+let db: ReturnType<typeof createMorfem> | undefined;
 export default {
-  fetch(req: Request, env: { DB: D1Database; BASE_KEYS: string }) {
-    db ??= createBase({ store: d1Store(env.DB), keys: JSON.parse(env.BASE_KEYS) });
+  fetch(req: Request, env: { DB: D1Database; MORFEM_KEYS: string }) {
+    db ??= createMorfem({ store: d1Store(env.DB), keys: JSON.parse(env.MORFEM_KEYS) });
     return db.then((b) => b.fetch(req));
   },
 };

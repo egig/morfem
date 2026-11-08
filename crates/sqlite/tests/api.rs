@@ -1,6 +1,6 @@
-use base_engine::auth::{Open, StaticKeys};
-use base_engine::{Engine, Request};
-use base_sqlite::SqliteStore;
+use morfem_engine::auth::{Open, StaticKeys};
+use morfem_engine::{Engine, Request};
+use morfem_sqlite::SqliteStore;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -249,15 +249,15 @@ fn index_matches_compiler_output() {
     // `INDEXED BY` errors unless the partial expression index is usable for the exact
     // SQL the compiler emits. Deterministic, unlike planner cost choices.
     let conn = rusqlite::Connection::open_in_memory().unwrap();
-    conn.execute_batch(base_engine::SCHEMA).unwrap();
+    conn.execute_batch(morfem_engine::SCHEMA).unwrap();
     conn.execute_batch(
-        "CREATE INDEX \"base:idx:age\" ON docs(db, json_extract(body,'$.age')) WHERE deleted=0;",
+        "CREATE INDEX \"morfem:idx:age\" ON docs(db, json_extract(body,'$.age')) WHERE deleted=0;",
     )
     .unwrap();
     for sel in [json!({"age": 5}), json!({"age": {"$gt": 5}}), json!({"age": {"$in": [1, 2]}})] {
-        let c = base_engine::mango::compile(&sel).unwrap();
+        let c = morfem_engine::mango::compile(&sel).unwrap();
         let sql = format!(
-            "EXPLAIN QUERY PLAN SELECT id FROM docs INDEXED BY \"base:idx:age\" WHERE db='notes' AND deleted=0 AND {}",
+            "EXPLAIN QUERY PLAN SELECT id FROM docs INDEXED BY \"morfem:idx:age\" WHERE db='notes' AND deleted=0 AND {}",
             c.sql
         );
         let n = c.params.len();
@@ -366,7 +366,7 @@ fn ui_is_public_html() {
         let r = pollster::block_on(e.handle(Request { method: "GET".into(), path: path.into(), ..Default::default() }));
         assert_eq!(r.status, 200);
         assert!(r.content_type.starts_with("text/html"));
-        assert!(String::from_utf8(r.body).unwrap().contains("<title>base</title>"));
+        assert!(String::from_utf8(r.body).unwrap().contains("<title>morfem</title>"));
     }
 }
 
@@ -448,7 +448,7 @@ fn changes_limit_extends_to_commit_end_and_zero_is_empty() {
 }
 
 fn tmp_db(tag: &str) -> std::path::PathBuf {
-    std::env::temp_dir().join(format!("base-boot-{tag}-{}.db", std::process::id()))
+    std::env::temp_dir().join(format!("morfem-boot-{tag}-{}.db", std::process::id()))
 }
 
 fn rm_db(p: &std::path::Path) {
@@ -463,7 +463,7 @@ fn init_via_store_batch_is_idempotent() {
     let e = engine();
     pollster::block_on(e.init()).unwrap();
     pollster::block_on(e.init()).unwrap();
-    assert!(base_engine::schema_statements().count() > 10);
+    assert!(morfem_engine::schema_statements().count() > 10);
     assert_eq!(call(&e, "PUT", "/a", None).0, 201);
     call(&e, "PUT", "/a/x", Some(json!({"v": 1})));
     pollster::block_on(e.init()).unwrap();

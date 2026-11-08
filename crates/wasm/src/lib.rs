@@ -1,8 +1,8 @@
-//! JS bindings for base-engine, consumed by the npm package in `packages/base`.
+//! JS bindings for morfem-engine, consumed by the npm package in `packages/morfem`.
 //! The JS side supplies the storage as one function: `(stmtsJson: string) => Promise<string>`.
 
-use base_engine::auth::{Authenticator, Open, StaticKeys};
-use base_engine::{Engine, Error, Row, Stmt, Store, Val};
+use morfem_engine::auth::{Authenticator, Open, StaticKeys};
+use morfem_engine::{Engine, Error, Row, Stmt, Store, Val};
 use js_sys::{Function, Object, Promise, Reflect, Uint8Array};
 use serde_json::Value;
 use wasm_bindgen::prelude::*;
@@ -15,7 +15,7 @@ fn store_err(e: impl ToString) -> Error {
 }
 
 fn js_err(e: JsValue) -> Error {
-    // Keep the message: a failed guard must still carry `base_conflict`.
+    // Keep the message: a failed guard must still carry `morfem_conflict`.
     let msg = Reflect::get(&e, &"message".into()).ok().and_then(|m| m.as_string()).or_else(|| e.as_string());
     store_err(msg.unwrap_or_else(|| "store error".into()))
 }
@@ -40,7 +40,7 @@ fn json_val(v: Value) -> Val {
 }
 
 impl Store for JsStore {
-    async fn batch(&self, stmts: Vec<Stmt>) -> base_engine::Result<Vec<Vec<Row>>> {
+    async fn batch(&self, stmts: Vec<Stmt>) -> morfem_engine::Result<Vec<Vec<Row>>> {
         let req: Vec<Value> = stmts
             .iter()
             .map(|s| serde_json::json!({ "sql": s.sql, "params": s.params.iter().map(val_json).collect::<Vec<_>>() }))
@@ -64,15 +64,15 @@ fn new_id() -> String {
 }
 
 #[wasm_bindgen]
-pub struct Base {
+pub struct Morfem {
     engine: Engine<JsStore>,
 }
 
 #[wasm_bindgen]
-impl Base {
-    /// `keys_json`: BASE_KEYS-shaped JSON array. `no_auth`: everyone is admin (development only).
+impl Morfem {
+    /// `keys_json`: MORFEM_KEYS-shaped JSON array. `no_auth`: everyone is admin (development only).
     #[wasm_bindgen(constructor)]
-    pub fn new(batch: Function, keys_json: Option<String>, no_auth: bool) -> Result<Base, JsError> {
+    pub fn new(batch: Function, keys_json: Option<String>, no_auth: bool) -> Result<Morfem, JsError> {
         let auth: Box<dyn Authenticator + Send + Sync> = if no_auth {
             Box::new(Open)
         } else {
@@ -81,7 +81,7 @@ impl Base {
                 None => Box::new(StaticKeys::deny_all()),
             }
         };
-        Ok(Base { engine: Engine::new(JsStore(batch), auth, new_id) })
+        Ok(Morfem { engine: Engine::new(JsStore(batch), auth, new_id) })
     }
 
     /// Apply the schema. Idempotent.
@@ -98,7 +98,7 @@ impl Base {
         bearer: Option<String>,
         body: Vec<u8>,
     ) -> Result<JsValue, JsError> {
-        let out = self.engine.handle(base_engine::Request { method, path, query, bearer, body }).await;
+        let out = self.engine.handle(morfem_engine::Request { method, path, query, bearer, body }).await;
         let obj = Object::new();
         let set = |k: &str, v: JsValue| Reflect::set(&obj, &k.into(), &v).map(|_| ()).map_err(|_| JsError::new("reflect"));
         set("status", JsValue::from_f64(out.status as f64))?;

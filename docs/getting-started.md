@@ -4,23 +4,23 @@ title: Getting started
 
 # Getting started
 
-No Rust? Use the [npm package](npm) instead: `npm i @egig/base`.
+No Rust? Use the [npm package](npm) instead: `npm i morfem`.
 
 ## Run natively
 
 ```sh
-BASE_KEYS='[{"key":"devkey-12345","access":"admin"}]' cargo run -p base-server
+MORFEM_KEYS='[{"key":"devkey-12345","access":"admin"}]' cargo run -p morfem-server
 # or, no auth (everyone is admin; local development only):
-cargo run -p base-server -- --no-auth
+cargo run -p morfem-server -- --no-auth
 ```
 
 Server options:
 
 | flag | env | default |
 |---|---|---|
-| `--db` | `BASE_DB` | `base.db` (SQLite file) |
-| `--listen` | `BASE_LISTEN` | `127.0.0.1:5984` |
-| `--keys` | `BASE_KEYS` | none (every request is 401) |
+| `--db` | `MORFEM_DB` | `morfem.db` (SQLite file) |
+| `--listen` | `MORFEM_LISTEN` | `127.0.0.1:5984` |
+| `--keys` | `MORFEM_KEYS` | none (every request is 401) |
 | `--no-auth` | | off |
 
 ## Run on Cloudflare Workers
@@ -35,15 +35,15 @@ npx wrangler dev          # keys come from .dev.vars
 Deploy:
 
 ```sh
-npx wrangler d1 create base            # put the id in wrangler.toml
-npx wrangler secret put BASE_KEYS
+npx wrangler d1 create morfem            # put the id in wrangler.toml
+npx wrangler secret put MORFEM_KEYS
 npx wrangler deploy
 ```
 
 `.dev.vars` example:
 
 ```
-BASE_KEYS=[{"key":"devkey-12345","access":"admin"}]
+MORFEM_KEYS=[{"key":"devkey-12345","access":"admin"}]
 ```
 
 ## First requests
@@ -63,4 +63,4 @@ curl -X DELETE "$B/notes/n1?rev=2" -H "$H"
 ## Admin page
 
 `GET /_ui` serves a static admin page. It is public and holds no data; it sends your token with each API call.
-`GET /` is also public and returns `{"name":"base","version":"..."}`.
+`GET /` is also public and returns `{"name":"morfem","version":"..."}`.

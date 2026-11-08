@@ -4,7 +4,7 @@ title: Transactions
 
 # Transactions
 
-D1 has no interactive transactions, so base uses optimistic concurrency. You send reads you depended on, guards, and writes in one request. base validates and applies them in one atomic batch.
+D1 has no interactive transactions, so morfem uses optimistic concurrency. You send reads you depended on, guards, and writes in one request. morfem validates and applies them in one atomic batch.
 
 ```jsonc
 POST /_txn

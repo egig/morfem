@@ -1,9 +1,9 @@
-import init, { Base as WasmBase } from "./gen/base_wasm.js";
-import type { BaseOptions, RawRequest, RawResponse, Store } from "./types.js";
+import init, { Morfem as WasmMorfem } from "./gen/morfem_wasm.js";
+import type { MorfemOptions, RawRequest, RawResponse, Store } from "./types.js";
 
 export type * from "./types.js";
 
-export interface Base {
+export interface Morfem {
   /** Serve a standard Request. Plug into `Bun.serve`, `Deno.serve`, a Worker `fetch`, or call directly. */
   fetch(req: Request): Promise<Response>;
   /** Lower level: framework-free request in, response out. */
@@ -13,7 +13,7 @@ export interface Base {
 let loaded: Promise<unknown> | undefined;
 
 async function defaultWasm(): Promise<unknown> {
-  const url = new URL("./gen/base_wasm_bg.wasm", import.meta.url);
+  const url = new URL("./gen/morfem_wasm_bg.wasm", import.meta.url);
   if (url.protocol === "file:" && typeof (globalThis as any).process?.versions?.node === "string" && !("Deno" in globalThis) && !("Bun" in globalThis)) {
     // Node's fetch cannot read file: URLs.
     const spec = "node:fs/promises";
@@ -23,7 +23,7 @@ async function defaultWasm(): Promise<unknown> {
   return url;
 }
 
-function load(wasm: BaseOptions["wasm"]): Promise<unknown> {
+function load(wasm: MorfemOptions["wasm"]): Promise<unknown> {
   // One instantiation per module instance. An explicit `wasm` wins on first call.
   loaded ??= Promise.resolve(wasm ?? defaultWasm()).then((module_or_path) => init({ module_or_path: module_or_path as any }));
   return loaded;
@@ -33,18 +33,18 @@ function load(wasm: BaseOptions["wasm"]): Promise<unknown> {
  * Create a database. Applies the schema (idempotent) before returning.
  *
  * ```ts
- * const db = await createBase({ store: sqliteStore(new DatabaseSync("app.db")), keys: [{ key: "devkey-12345", access: "admin" }] });
+ * const db = await createMorfem({ store: sqliteStore(new DatabaseSync("app.db")), keys: [{ key: "devkey-12345", access: "admin" }] });
  * const res = await db.fetch(new Request("http://x/notes", { method: "PUT", headers: { authorization: "Bearer devkey-12345" } }));
  * ```
  */
-export async function createBase(opts: BaseOptions): Promise<Base> {
+export async function createMorfem(opts: MorfemOptions): Promise<Morfem> {
   if (!opts.noAuth && !opts.keys?.length) {
-    throw new Error("createBase: pass `keys` or `noAuth: true` (without either, every request is 401)");
+    throw new Error("createMorfem: pass `keys` or `noAuth: true` (without either, every request is 401)");
   }
   await load(opts.wasm);
   const store: Store = opts.store;
   const batch = async (json: string): Promise<string> => JSON.stringify(await store.batch(JSON.parse(json)));
-  const core = new WasmBase(batch, opts.noAuth ? undefined : JSON.stringify(opts.keys), !!opts.noAuth);
+  const core = new WasmMorfem(batch, opts.noAuth ? undefined : JSON.stringify(opts.keys), !!opts.noAuth);
   await core.init();
 
   const handle = async (r: RawRequest): Promise<RawResponse> =>
@@ -68,5 +68,5 @@ export async function createBase(opts: BaseOptions): Promise<Base> {
   };
 }
 
-export { openBase, BaseError, Collection } from "./sdk.js";
+export { openMorfem, MorfemError, Collection } from "./sdk.js";
 export type * from "./sdk.js";

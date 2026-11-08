@@ -1,7 +1,7 @@
-//! Throughput smoke bench. Run: cargo test -p base-sqlite --release --test bench -- --ignored --nocapture
-use base_engine::auth::Open;
-use base_engine::{Engine, Request};
-use base_sqlite::SqliteStore;
+//! Throughput smoke bench. Run: cargo test -p morfem-sqlite --release --test bench -- --ignored --nocapture
+use morfem_engine::auth::Open;
+use morfem_engine::{Engine, Request};
+use morfem_sqlite::SqliteStore;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -32,7 +32,7 @@ fn report(name: &str, n: usize, t: Instant) {
 #[test]
 #[ignore]
 fn bench() {
-    let path = std::env::temp_dir().join(format!("base-bench-{}.db", std::process::id()));
+    let path = std::env::temp_dir().join(format!("morfem-bench-{}.db", std::process::id()));
     let e = Arc::new(Engine::new(SqliteStore::open(&path).unwrap(), Box::new(Open), gen_id));
     assert_eq!(call(&e, "PUT", "/b", None), 201);
 
@@ -90,7 +90,7 @@ fn bench() {
 #[ignore]
 fn bench_many_indexes() {
     for dbs in [1usize, 100, 500] {
-        let path = std::env::temp_dir().join(format!("base-bench-idx-{}-{dbs}.db", std::process::id()));
+        let path = std::env::temp_dir().join(format!("morfem-bench-idx-{}-{dbs}.db", std::process::id()));
         let e = Engine::new(SqliteStore::open(&path).unwrap(), Box::new(Open), gen_id);
         for d in 0..dbs {
             assert_eq!(call(&e, "PUT", &format!("/d{d}"), None), 201);

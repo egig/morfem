@@ -1,7 +1,7 @@
-//! Cloudflare Worker adapter: base-engine over D1.
+//! Cloudflare Worker adapter: morfem-engine over D1.
 
-use base_engine::auth::{Authenticator, StaticKeys};
-use base_engine::{Engine, Error, Row, Stmt, Store, Val};
+use morfem_engine::auth::{Authenticator, StaticKeys};
+use morfem_engine::{Engine, Error, Row, Stmt, Store, Val};
 use serde_json::{Map, Value};
 use wasm_bindgen::{JsCast, JsValue};
 use worker::*;
@@ -33,7 +33,7 @@ fn from_json(v: Value) -> Val {
 }
 
 impl Store for D1Store {
-    async fn batch(&self, stmts: Vec<Stmt>) -> base_engine::Result<Vec<Vec<Row>>> {
+    async fn batch(&self, stmts: Vec<Stmt>) -> morfem_engine::Result<Vec<Vec<Row>>> {
         let mut prepared = Vec::with_capacity(stmts.len());
         for s in &stmts {
             let args: Vec<JsValue> = s.params.iter().map(to_js).collect();
@@ -65,17 +65,17 @@ fn new_id() -> String {
 }
 
 fn authenticator(env: &Env) -> Box<dyn Authenticator + Send + Sync> {
-    // Local development only: set BASE_NO_AUTH=true in `.dev.vars`, never in wrangler.toml or secrets.
-    let no_auth = env.secret("BASE_NO_AUTH").map(|s| s.to_string()).or_else(|_| env.var("BASE_NO_AUTH").map(|v| v.to_string()));
+    // Local development only: set MORFEM_NO_AUTH=true in `.dev.vars`, never in wrangler.toml or secrets.
+    let no_auth = env.secret("MORFEM_NO_AUTH").map(|s| s.to_string()).or_else(|_| env.var("MORFEM_NO_AUTH").map(|v| v.to_string()));
     if no_auth.is_ok_and(|v| v == "true") {
-        return Box::new(base_engine::auth::Open);
+        return Box::new(morfem_engine::auth::Open);
     }
-    // Secret in production (`wrangler secret put BASE_KEYS`), `.dev.vars` locally.
-    let raw = env.secret("BASE_KEYS").map(|s| s.to_string()).or_else(|_| env.var("BASE_KEYS").map(|v| v.to_string()));
+    // Secret in production (`wrangler secret put MORFEM_KEYS`), `.dev.vars` locally.
+    let raw = env.secret("MORFEM_KEYS").map(|s| s.to_string()).or_else(|_| env.var("MORFEM_KEYS").map(|v| v.to_string()));
     match raw.map(|s| StaticKeys::from_json(&s)) {
         Ok(Ok(k)) => Box::new(k),
         Ok(Err(e)) => {
-            console_error!("BASE_KEYS invalid: {e}");
+            console_error!("MORFEM_KEYS invalid: {e}");
             Box::new(StaticKeys::deny_all())
         }
         // Not configured: deny everything.
@@ -107,7 +107,7 @@ async fn fetch(mut req: Request, env: Env, _ctx: Context) -> Result<Response> {
     }
 
     let out = engine
-        .handle(base_engine::Request {
+        .handle(morfem_engine::Request {
             method: req.method().to_string(),
             path: url.path().to_string(),
             query: url.query().unwrap_or("").to_string(),

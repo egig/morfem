@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'">
-<title>base</title>
+<title>morfem</title>
 <style>
 :root{color-scheme:light dark;--bg:#fafafa;--fg:#1a1a1a;--mut:#737373;--line:#e5e5e5;--card:#fff;--acc:#333;--onacc:#fff;--bad:#b91c1c}
 @media(prefers-color-scheme:dark){:root{--bg:#161616;--fg:#e5e5e5;--mut:#a3a3a3;--line:#2e2e2e;--card:#1f1f1f;--acc:#d4d4d4;--onacc:#161616;--bad:#f87171}}
@@ -32,7 +32,7 @@ textarea{width:100%;height:320px;font-family:ui-monospace,monospace;font-size:13
 </head>
 <body>
 <header>
-  <b>base</b>
+  <b>morfem</b>
   <input id="token" type="password" placeholder="API key (empty if no auth)" size="26" autocomplete="off">
   <button id="connect" class="pri">Connect</button>
 </header>
@@ -63,7 +63,7 @@ textarea{width:100%;height:320px;font-family:ui-monospace,monospace;font-size:13
 const $ = s => document.querySelector(s);
 let token = '', db = null, cur = null; // cur = {id, rev} of the doc open in the editor
 
-try { token = localStorage.getItem('base_token') || ''; } catch (e) {}
+try { token = localStorage.getItem('morfem_token') || ''; } catch (e) {}
 $('#token').value = token;
 
 function say(text, err) { const m = $('#msg'); m.textContent = text || ''; m.className = err ? 'err' : ''; }
@@ -137,7 +137,7 @@ function clearEditor() {
 
 $('#connect').onclick = run(async () => {
   token = $('#token').value.trim();
-  try { localStorage.setItem('base_token', token); } catch (e) {}
+  try { localStorage.setItem('morfem_token', token); } catch (e) {}
   await loadDbs();
   say('Connected.');
 });

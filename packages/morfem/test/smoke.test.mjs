@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
-import { createBase } from "../dist/index.js";
+import { createMorfem } from "../dist/index.js";
 import { sqliteStore } from "../dist/stores/sqlite.js";
 
 const auth = { authorization: "Bearer devkey-12345", "content-type": "application/json" };
@@ -9,7 +9,7 @@ const req = (db, method, path, body, headers = auth) =>
   db.fetch(new Request("http://x" + path, { method, headers, body: body && JSON.stringify(body) }));
 
 test("crud, find, txn conflict", async () => {
-  const db = await createBase({ store: sqliteStore(new DatabaseSync(":memory:")), keys: [{ key: "devkey-12345", access: "admin" }] });
+  const db = await createMorfem({ store: sqliteStore(new DatabaseSync(":memory:")), keys: [{ key: "devkey-12345", access: "admin" }] });
 
   assert.equal((await req(db, "GET", "/_all_dbs", undefined, {})).status, 401);
   assert.equal((await req(db, "PUT", "/notes")).status, 201);
@@ -33,12 +33,12 @@ test("crud, find, txn conflict", async () => {
 test("schema init is idempotent across restarts", async () => {
   const sqlite = new DatabaseSync(":memory:");
   const opts = { store: sqliteStore(sqlite), noAuth: true };
-  const a = await createBase(opts);
+  const a = await createMorfem(opts);
   await a.fetch(new Request("http://x/d", { method: "PUT" }));
-  const b = await createBase(opts);
+  const b = await createMorfem(opts);
   assert.equal((await b.fetch(new Request("http://x/d"))).status, 200);
 });
 
 test("requires auth config", async () => {
-  await assert.rejects(createBase({ store: sqliteStore(new DatabaseSync(":memory:")) }));
+  await assert.rejects(createMorfem({ store: sqliteStore(new DatabaseSync(":memory:")) }));
 });

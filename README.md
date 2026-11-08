@@ -1,4 +1,4 @@
-# base
+# morfem
 
 Schemaless, transactional document database with a CouchDB-shaped HTTP API.
 SQLite under the hood: `rusqlite` natively, D1 on Cloudflare Workers.
@@ -14,22 +14,22 @@ SQLite under the hood: `rusqlite` natively, D1 on Cloudflare Workers.
 
 ## Install (npm)
 
-`npm i @egig/base` embeds the DB in Node, Bun, Deno, browsers or Workers, with no Rust build. See [docs/npm.md](docs/npm.md).
+`npm i morfem` embeds the DB in Node, Bun, Deno, browsers or Workers, with no Rust build. See [docs/npm.md](docs/npm.md).
 
 ## Run
 
 ```sh
 # native
-BASE_KEYS='[{"key":"devkey-12345","access":"admin"}]' cargo run -p base-server
-# or: cargo run -p base-server -- --no-auth
+MORFEM_KEYS='[{"key":"devkey-12345","access":"admin"}]' cargo run -p morfem-server
+# or: cargo run -p morfem-server -- --no-auth
 
 # Worker, local D1
 cd crates/worker
 npx wrangler dev          # keys come from .dev.vars
 
 # deploy
-npx wrangler d1 create base            # put the id in wrangler.toml
-npx wrangler secret put BASE_KEYS
+npx wrangler d1 create morfem            # put the id in wrangler.toml
+npx wrangler secret put MORFEM_KEYS
 npx wrangler deploy
 ```
 
@@ -37,7 +37,7 @@ The schema is applied automatically on boot (native open, Worker cold start); th
 
 ## Auth
 
-`Authorization: Bearer <key>`. `BASE_KEYS` is a JSON array:
+`Authorization: Bearer <key>`. `MORFEM_KEYS` is a JSON array:
 `[{"key":"...","access":"admin|write|read","dbs":["notes"]}]` (`dbs` omitted = all).
 Keys must be 8+ chars. No keys configured = every request is 401.
 `admin` creates/deletes dbs and indexes; `write` writes docs; `read` reads.
@@ -64,7 +64,7 @@ Mango operators: implicit eq, nested subfields, `$eq $ne $gt $gte $lt $lte $in $
 
 ## Transactions
 
-D1 has no interactive transactions, so base uses optimistic concurrency:
+D1 has no interactive transactions, so morfem uses optimistic concurrency:
 
 ```jsonc
 POST /_txn

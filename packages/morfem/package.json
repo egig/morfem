@@ -1,5 +1,5 @@
 {
-  "name": "@egig/base",
+  "name": "morfem",
   "version": "0.1.0",
   "description": "Schemaless, transactional document database with a CouchDB-shaped HTTP API. Runs in-process on Node, Bun, Deno, browsers and Cloudflare Workers.",
   "license": "MIT",
@@ -13,7 +13,7 @@
     "./workers": { "types": "./dist/workers.d.ts", "default": "./dist/workers.js" },
     "./stores/sqlite": { "types": "./dist/stores/sqlite.d.ts", "default": "./dist/stores/sqlite.js" },
     "./stores/d1": { "types": "./dist/stores/d1.d.ts", "default": "./dist/stores/d1.js" },
-    "./base.wasm": "./dist/gen/base_wasm_bg.wasm",
+    "./morfem.wasm": "./dist/gen/morfem_wasm_bg.wasm",
     "./package.json": "./package.json"
   },
   "files": ["dist", "README.md"],

@@ -1,15 +1,15 @@
-import { createBase, type Base } from "./index.js";
+import { createMorfem, type Morfem } from "./index.js";
 import type { SqlValue, Store } from "./types.js";
 
 /** Error from the engine. `status` and `error` follow the HTTP API (409 `conflict`, 404 `not_found`, ...). */
-export class BaseError extends Error {
+export class MorfemError extends Error {
   constructor(
     readonly status: number,
     readonly error: string,
     readonly reason: string,
   ) {
     super(`${error}: ${reason}`);
-    this.name = "BaseError";
+    this.name = "MorfemError";
   }
   get isConflict(): boolean {
     return this.status === 409;
@@ -86,7 +86,7 @@ type Call = (method: string, path: string, query?: Record<string, string | numbe
 
 const enc = encodeURIComponent;
 
-/** One database (like a collection). Get one with `base.db(name)`. */
+/** One database (like a collection). Get one with `morfem.db(name)`. */
 export class Collection<T extends object = Record<string, unknown>> {
   constructor(
     readonly name: string,
@@ -102,7 +102,7 @@ export class Collection<T extends object = Record<string, unknown>> {
     try {
       return await this.call("GET", `${this.p}/${enc(id)}`);
     } catch (e) {
-      if (e instanceof BaseError && e.status === 404 && e.error === "not_found") return null;
+      if (e instanceof MorfemError && e.status === 404 && e.error === "not_found") return null;
       throw e;
     }
   }
@@ -133,7 +133,7 @@ export class Collection<T extends object = Record<string, unknown>> {
       try {
         return await this.put(id, next, { rev: cur?._rev });
       } catch (e) {
-        if (!(e instanceof BaseError && e.isConflict) || i >= retries) throw e;
+        if (!(e instanceof MorfemError && e.isConflict) || i >= retries) throw e;
       }
     }
   }
@@ -180,23 +180,23 @@ export interface Sdk {
   createDb<T extends object = Record<string, unknown>>(name: string): Promise<Collection<T>>;
   dropDb(name: string): Promise<void>;
   listDbs(): Promise<string[]>;
-  /** Atomic multi-doc, multi-db transaction. Throws `BaseError` with `isConflict` on stale revs or guards. */
+  /** Atomic multi-doc, multi-db transaction. Throws `MorfemError` with `isConflict` on stale revs or guards. */
   txn(input: TxnInput): Promise<TxnResult>;
   /** The underlying Request/Response handler, if you also want to expose the HTTP API. Auth is off: do not expose it as is. */
-  readonly raw: Base;
+  readonly raw: Morfem;
 }
 
 export interface OpenOptions {
   store: Store;
-  wasm?: Parameters<typeof createBase>[0]["wasm"];
+  wasm?: Parameters<typeof createMorfem>[0]["wasm"];
 }
 
 /**
  * Open a database in-process: TS -> SDK -> engine (wasm) -> your SQLite. No HTTP, no keys.
  * The SDK is fully trusted (admin on everything).
  */
-export async function openBase(opts: OpenOptions): Promise<Sdk> {
-  const raw = await createBase({ store: opts.store, wasm: opts.wasm, noAuth: true });
+export async function openMorfem(opts: OpenOptions): Promise<Sdk> {
+  const raw = await createMorfem({ store: opts.store, wasm: opts.wasm, noAuth: true });
   const dec = new TextDecoder();
   const enc8 = new TextEncoder();
 
@@ -210,7 +210,7 @@ export async function openBase(opts: OpenOptions): Promise<Sdk> {
       body: body === undefined ? undefined : enc8.encode(JSON.stringify(body)),
     });
     const json = res.body.length ? JSON.parse(dec.decode(res.body)) : undefined;
-    if (res.status >= 400) throw new BaseError(res.status, json?.error ?? "error", json?.reason ?? "");
+    if (res.status >= 400) throw new MorfemError(res.status, json?.error ?? "error", json?.reason ?? "");
     return json;
   };
 
@@ -221,7 +221,7 @@ export async function openBase(opts: OpenOptions): Promise<Sdk> {
       try {
         await call("PUT", `/${enc(name)}`);
       } catch (e) {
-        if (!(e instanceof BaseError && e.status === 412)) throw e;
+        if (!(e instanceof MorfemError && e.status === 412)) throw e;
       }
       return new Collection<T>(name, call);
     },

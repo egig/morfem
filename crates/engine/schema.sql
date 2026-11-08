@@ -1,4 +1,4 @@
--- base schema. Single source of truth, applied on every boot by both stores (native open, Worker cold start).
+-- morfem schema. Single source of truth, applied on every boot by both stores (native open, Worker cold start).
 --
 -- Rules:
 --  * Every statement must be idempotent (IF NOT EXISTS / INSERT OR IGNORE). Additive changes go at the end.
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS indexes (
 -- aborts the whole batch, which rolls back. Rows are deleted at the end of each commit.
 CREATE TABLE IF NOT EXISTS _guard (
   ok INTEGER NOT NULL,
-  CONSTRAINT base_conflict CHECK (ok = 1)
+  CONSTRAINT morfem_conflict CHECK (ok = 1)
 );
 --;;
 -- O(1) live-doc counts per db, kept by triggers. delete_db removes its row explicitly;

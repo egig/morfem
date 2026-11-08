@@ -4,20 +4,20 @@ title: npm package
 
 # npm package
 
-`@egig/base` runs the database inside your own process. The engine ships as prebuilt WebAssembly, so you do not clone the repo or install Rust. You supply the SQLite or D1 handle. The HTTP API is the same as the server's: see [HTTP API](api).
+`morfem` runs the database inside your own process. The engine ships as prebuilt WebAssembly, so you do not clone the repo or install Rust. You supply the SQLite or D1 handle. The HTTP API is the same as the server's: see [HTTP API](api).
 
 ```sh
-npm i @egig/base
+npm i morfem
 ```
 
 ## Node (22.5 or newer)
 
 ```ts
 import { DatabaseSync } from "node:sqlite";
-import { createBase } from "@egig/base";
-import { sqliteStore } from "@egig/base/stores/sqlite";
+import { createMorfem } from "morfem";
+import { sqliteStore } from "morfem/stores/sqlite";
 
-const db = await createBase({
+const db = await createMorfem({
   store: sqliteStore(new DatabaseSync("app.db")),
   keys: [{ key: "devkey-12345", access: "admin" }],
 });
@@ -36,13 +36,13 @@ The host in the URL is ignored; only the path and query matter.
 
 ## SDK (no HTTP)
 
-`openBase` skips Request/Response and gives typed methods. The path is TS, then SDK, then the wasm engine, then SQLite. The SDK is trusted: there are no keys and everything is admin.
+`openMorfem` skips Request/Response and gives typed methods. The path is TS, then SDK, then the wasm engine, then SQLite. The SDK is trusted: there are no keys and everything is admin.
 
 ```ts
-import { openFile } from "@egig/base/node";
+import { openFile } from "morfem/node";
 
-const base = await openFile("app.db"); // sets WAL and a 5 s busy timeout
-const notes = await base.createDb<{ title: string; n: number }>("notes");
+const morfem = await openFile("app.db"); // sets WAL and a 5 s busy timeout
+const notes = await morfem.createDb<{ title: string; n: number }>("notes");
 
 const { rev } = await notes.put("a", { title: "hi", n: 1 });   // create-only: throws a conflict if "a" exists
 await notes.put("a", { title: "hello", n: 2 }, { rev });       // update from rev
@@ -51,18 +51,18 @@ await notes.update("a", (d) => ({ ...d!, n: d!.n + 1 }));      // read-modify-wr
 await notes.createIndex(["n"]);
 const { docs } = await notes.find({ selector: { n: { $gte: 1 } }, sort: [{ n: "desc" }], limit: 10 });
 await notes.delete("a", (await notes.get("a"))!._rev);
-base.close();
+morfem.close();
 ```
 
-With your own store (Workers, Bun, better-sqlite3) use `openBase({ store })` from `@egig/base` or `@egig/base/workers`.
+With your own store (Workers, Bun, better-sqlite3) use `openMorfem({ store })` from `morfem` or `morfem/workers`.
 
 | method | notes |
 |---|---|
-| `base.createDb(name)` | returns the handle; fine if it exists |
-| `base.db(name)` | handle, does not create |
-| `base.dropDb(name)`, `base.listDbs()` | |
-| `base.txn({ reads?, guards?, ops })` | see [Transactions](transactions) |
-| `base.raw` | the `fetch`/`handle` object, auth off. Do not expose it publicly |
+| `morfem.createDb(name)` | returns the handle; fine if it exists |
+| `morfem.db(name)` | handle, does not create |
+| `morfem.dropDb(name)`, `morfem.listDbs()` | |
+| `morfem.txn({ reads?, guards?, ops })` | see [Transactions](transactions) |
+| `morfem.raw` | the `fetch`/`handle` object, auth off. Do not expose it publicly |
 | `db.get(id)` | doc or `null` |
 | `db.put(id, doc, { rev? })` | no `rev` = create only |
 | `db.post(doc)` | generated id |
@@ -74,7 +74,7 @@ With your own store (Workers, Bun, better-sqlite3) use `openBase({ store })` fro
 | `db.info()` | |
 | `db.createIndex(fields, name?)`, `db.indexes()`, `db.dropIndex(name)` | |
 
-Failures throw `BaseError` with `status`, `error`, `reason` (the same as the [HTTP errors](api)) and `isConflict`. `get` returns `null` instead of throwing on 404.
+Failures throw `MorfemError` with `status`, `error`, `reason` (the same as the [HTTP errors](api)) and `isConflict`. `get` returns `null` instead of throwing on 404.
 
 ## Serve over HTTP
 
@@ -90,29 +90,29 @@ On Node, use any Request/Response adapter, for example `@hono/node-server`.
 ## Cloudflare Workers (D1)
 
 ```ts
-import { createBase, d1Store } from "@egig/base/workers";
+import { createMorfem, d1Store } from "morfem/workers";
 
-let db: ReturnType<typeof createBase> | undefined;
+let db: ReturnType<typeof createMorfem> | undefined;
 
 export default {
-  fetch(req: Request, env: { DB: D1Database; BASE_KEYS: string }) {
-    db ??= createBase({ store: d1Store(env.DB), keys: JSON.parse(env.BASE_KEYS) });
+  fetch(req: Request, env: { DB: D1Database; MORFEM_KEYS: string }) {
+    db ??= createMorfem({ store: d1Store(env.DB), keys: JSON.parse(env.MORFEM_KEYS) });
     return db.then((b) => b.fetch(req));
   },
 };
 ```
 
-Use the `@egig/base/workers` entry. It imports the `.wasm` as a module, which wrangler bundles; Workers cannot compile wasm from bytes at runtime. The schema is applied on first use.
+Use the `morfem/workers` entry. It imports the `.wasm` as a module, which wrangler bundles; Workers cannot compile wasm from bytes at runtime. The schema is applied on first use.
 
-Set the keys with `npx wrangler secret put BASE_KEYS`. Add a D1 binding named `DB` in `wrangler.toml`.
+Set the keys with `npx wrangler secret put MORFEM_KEYS`. Add a D1 binding named `DB` in `wrangler.toml`.
 
 ## Browser
 
 Pass any `Store` (for example one over sql.js or wa-sqlite). The wasm loads from `import.meta.url`. If your bundler moves the file, pass it yourself:
 
 ```ts
-import wasmUrl from "@egig/base/base.wasm?url"; // Vite
-await createBase({ store, noAuth: true, wasm: wasmUrl });
+import wasmUrl from "morfem/morfem.wasm?url"; // Vite
+await createMorfem({ store, noAuth: true, wasm: wasmUrl });
 ```
 
 ## Options
@@ -120,11 +120,11 @@ await createBase({ store, noAuth: true, wasm: wasmUrl });
 | option | meaning |
 |---|---|
 | `store` | required. Where data lives. |
-| `keys` | array of `{ key, access, dbs? }`. Same meaning as `BASE_KEYS`: see [Auth and limits](auth-and-limits). |
-| `noAuth` | `true` makes everyone admin. Local development only. Pass `keys` or `noAuth`; `createBase` throws if you pass neither. |
+| `keys` | array of `{ key, access, dbs? }`. Same meaning as `MORFEM_KEYS`: see [Auth and limits](auth-and-limits). |
+| `noAuth` | `true` makes everyone admin. Local development only. Pass `keys` or `noAuth`; `createMorfem` throws if you pass neither. |
 | `wasm` | `WebAssembly.Module`, bytes, `Response`, or URL. Default: the file shipped in the package. |
 
-`createBase` returns `{ fetch(Request), handle({ method, path, query?, bearer?, body? }) }`. `path` is percent-encoded. `handle` returns `{ status, contentType, body: Uint8Array }`.
+`createMorfem` returns `{ fetch(Request), handle({ method, path, query?, bearer?, body? }) }`. `path` is percent-encoded. `handle` returns `{ status, contentType, body: Uint8Array }`.
 
 ## Custom store
 
@@ -143,4 +143,4 @@ Rules:
 ## Notes
 
 - One process, one writer. If several processes share one SQLite file, each batch still runs in `BEGIN IMMEDIATE`, but set a busy timeout on your handle.
-- `createBase` applies the schema on every call. It is idempotent, so restarts are safe.
+- `createMorfem` applies the schema on every call. It is idempotent, so restarts are safe.

@@ -10,7 +10,7 @@ All bodies are JSON. Send `Authorization: Bearer <key>` on every request except 
 
 | method and path | access | notes |
 |---|---|---|
-| `GET /` | none | `{"name":"base","version":"0.1.0"}` |
+| `GET /` | none | `{"name":"morfem","version":"0.1.0"}` |
 | `GET /_ui` | none | admin page (HTML) |
 | `GET /_all_dbs` | read | array of db names the key can read |
 | `PUT /{db}` | admin | create db. 201 `{"ok":true}`. 412 `file_exists` if present |
@@ -32,7 +32,7 @@ Wrong method on a known path: 405 `method_not_allowed`. Unknown `/{db}/_name`: 4
 
 ## Documents
 
-A document is a JSON object. `_id` and `_rev` are managed by base:
+A document is a JSON object. `_id` and `_rev` are managed by morfem:
 
 - `_rev` is a per-document integer rendered as a string (`"1"`, `"2"`, ...). Only the latest revision is stored.
 - `PUT` without a `_rev` is create-only. If the doc exists, you get 409.

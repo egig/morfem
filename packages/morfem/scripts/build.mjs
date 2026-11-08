@@ -27,13 +27,13 @@ function findBindgen() {
   throw new Error("wasm-bindgen CLI not found. Run: cargo install wasm-bindgen-cli --version 0.2.130");
 }
 
-run("cargo", ["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "base-wasm"]);
+run("cargo", ["build", "--release", "--target", "wasm32-unknown-unknown", "-p", "morfem-wasm"]);
 const gen = join(pkg, "src/gen");
 rmSync(gen, { recursive: true, force: true });
 mkdirSync(gen, { recursive: true });
 run(findBindgen(), [
-  "--target", "web", "--out-dir", gen, "--out-name", "base_wasm",
-  join(root, "target/wasm32-unknown-unknown/release/base_wasm.wasm"),
+  "--target", "web", "--out-dir", gen, "--out-name", "morfem_wasm",
+  join(root, "target/wasm32-unknown-unknown/release/morfem_wasm.wasm"),
 ]);
 rmSync(join(pkg, "dist"), { recursive: true, force: true });
 run(join(pkg, "node_modules/.bin/tsc"), ["-p", pkg], { cwd: pkg });

@@ -20,7 +20,7 @@ Dependency direction: `server`, `sqlite`, `worker` -> `engine`. Never the revers
 ## Architecture rules
 
 - `engine` talks to storage only through the `Store` trait (`crates/engine/src/store.rs`). It has one method, `batch(Vec<Stmt>)`: ordered statements, one atomic transaction, per-statement rows back. No interactive transactions, because D1 has none.
-- Concurrency is optimistic. `/_txn` validates reads (`rev`) and guards (`seq`) inside the same batch as the writes. A failed guard hits the `_guard` CHECK constraint (`base_conflict`), rolls back the batch, and maps to `Error::Conflict` (409). Use `Error::from_store` in any new `Store` impl.
+- Concurrency is optimistic. `/_txn` validates reads (`rev`) and guards (`seq`) inside the same batch as the writes. A failed guard hits the `_guard` CHECK constraint (`morfem_conflict`), rolls back the batch, and maps to `Error::Conflict` (409). Use `Error::from_store` in any new `Store` impl.
 - SELECT columns must have unique names (D1 returns rows as objects).
 - Do not add IO, threads, `std::time`, or native-only crates to `engine`. Keep IDs/time injected (see `Engine::new(..., new_id)`).
 - Schema change: edit `crates/engine/schema.sql`. It runs on every boot (native `SqliteStore::open`, Worker via `Engine::init` once per isolate), atomically, so every statement must be idempotent (`IF NOT EXISTS`, `INSERT OR IGNORE`), and an existing table must only gain things (new tables, indexes, triggers); never rewrite or drop what a deployed DB already has. Separate statements with a `--;;` line. There is no migration step or `wrangler d1 migrations`.
@@ -31,8 +31,8 @@ Dependency direction: `server`, `sqlite`, `worker` -> `engine`. Never the revers
 
 ```sh
 cargo test --workspace                          # native, includes sqlite integration tests
-cargo check -p base-engine --target wasm32-unknown-unknown   # engine must stay wasm-clean
-cargo run -p base-server -- --no-auth           # local server, no keys
+cargo check -p morfem-engine --target wasm32-unknown-unknown   # engine must stay wasm-clean
+cargo run -p morfem-server -- --no-auth           # local server, no keys
 ```
 
 Worker (needs `cargo install worker-build`, `rustup target add wasm32-unknown-unknown`):

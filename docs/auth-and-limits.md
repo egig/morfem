@@ -6,7 +6,7 @@ title: Auth and limits
 
 ## Keys
 
-Send `Authorization: Bearer <key>`. Keys come from `BASE_KEYS`, a JSON array:
+Send `Authorization: Bearer <key>`. Keys come from `MORFEM_KEYS`, a JSON array:
 
 ```json
 [{"key":"admin-key-1234","access":"admin"},

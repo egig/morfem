@@ -24,7 +24,7 @@ export interface ApiKey {
 
 export type Auth = { keys: ApiKey[]; noAuth?: false } | { noAuth: true; keys?: undefined };
 
-export type BaseOptions = Auth & {
+export type MorfemOptions = Auth & {
   store: Store;
   /**
    * Wasm to load: a `WebAssembly.Module` (Workers), bytes, a `Response`, or a URL.

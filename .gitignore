@@ -6,5 +6,5 @@ node_modules/
 *.db
 *.db-wal
 *.db-shm
-packages/base/dist/
-packages/base/src/gen/
+packages/morfem/dist/
+packages/morfem/src/gen/

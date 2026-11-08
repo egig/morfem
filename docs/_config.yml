@@ -1,4 +1,4 @@
-title: base
+title: morfem
 description: Schemaless, transactional document database with a CouchDB-shaped HTTP API.
 theme: jekyll-theme-minimal
 exclude:

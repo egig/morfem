@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { openBase, type Sdk } from "./sdk.js";
+import { openMorfem, type Sdk } from "./sdk.js";
 import { sqliteStore } from "./stores/sqlite.js";
 
 /**
@@ -10,9 +10,9 @@ export async function openFile(path: string): Promise<Sdk & { close(): void }> {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA busy_timeout=5000");
   if (path !== ":memory:") db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL");
-  const sdk = await openBase({ store: sqliteStore(db) });
+  const sdk = await openMorfem({ store: sqliteStore(db) });
   return Object.assign(sdk, { close: () => db.close() });
 }
 
-export { openBase, BaseError } from "./sdk.js";
+export { openMorfem, MorfemError } from "./sdk.js";
 export type * from "./sdk.js";

@@ -1,7 +1,7 @@
 use serde_json::{json, Value};
 
 /// Marker in the SQLite constraint name used by commit guards.
-pub const CONFLICT_MARK: &str = "base_conflict";
+pub const CONFLICT_MARK: &str = "morfem_conflict";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {

@@ -203,12 +203,12 @@ fn guard_live_rev(db: &str, id: &str, rev: Option<Rev>) -> Stmt {
 /// keeps lookups per-db; no per-db partial predicate, so write cost scales with distinct
 /// field lists rather than with the number of dbs.
 fn index_ident(fields: &[String]) -> String {
-    format!("\"base:idx:{}\"", fields.join(","))
+    format!("\"morfem:idx:{}\"", fields.join(","))
 }
 
 /// Pre-shared-index name (partial index per db). May still exist in older databases.
 fn legacy_index_ident(db: &str, name: &str) -> String {
-    format!("\"base:{db}:{name}\"")
+    format!("\"morfem:{db}:{name}\"")
 }
 
 impl<S: Store> Engine<S> {
@@ -263,7 +263,7 @@ impl<S: Store> Engine<S> {
         let m = req.method.to_ascii_uppercase();
 
         if m == "GET" && s.is_empty() {
-            return Ok((200, Out::V(json!({"name": "base", "version": env!("CARGO_PKG_VERSION")}))));
+            return Ok((200, Out::V(json!({"name": "morfem", "version": env!("CARGO_PKG_VERSION")}))));
         }
         let p = self.auth.authenticate(req.bearer.as_deref()).ok_or(Error::Unauthorized)?;
 

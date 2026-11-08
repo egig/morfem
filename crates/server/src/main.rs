@@ -2,22 +2,22 @@ use axum::body::{to_bytes, Body};
 use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::Response;
 use axum::Router;
-use base_engine::auth::{Authenticator, Open, StaticKeys};
-use base_engine::{Engine, Request};
-use base_sqlite::SqliteStore;
+use morfem_engine::auth::{Authenticator, Open, StaticKeys};
+use morfem_engine::{Engine, Request};
+use morfem_sqlite::SqliteStore;
 use clap::Parser;
 use std::sync::Arc;
 
 #[derive(Parser)]
-#[command(name = "base-server", about = "base document database over SQLite")]
+#[command(name = "morfem-server", about = "morfem document database over SQLite")]
 struct Args {
     /// SQLite database file.
-    #[arg(long, env = "BASE_DB", default_value = "base.db")]
+    #[arg(long, env = "MORFEM_DB", default_value = "morfem.db")]
     db: String,
-    #[arg(long, env = "BASE_LISTEN", default_value = "127.0.0.1:5984")]
+    #[arg(long, env = "MORFEM_LISTEN", default_value = "127.0.0.1:5984")]
     listen: String,
     /// JSON array of keys: [{"key":"...","access":"admin|write|read","dbs":["a"]}]
-    #[arg(long, env = "BASE_KEYS")]
+    #[arg(long, env = "MORFEM_KEYS")]
     keys: Option<String>,
     /// Disable authentication (everyone is admin). Local development only.
     #[arg(long)]
@@ -74,7 +74,7 @@ async fn main() {
             std::process::exit(2)
         })),
         (None, false) => {
-            eprintln!("error: set BASE_KEYS / --keys, or pass --no-auth for local development");
+            eprintln!("error: set MORFEM_KEYS / --keys, or pass --no-auth for local development");
             std::process::exit(2)
         }
     };
@@ -88,6 +88,6 @@ async fn main() {
         eprintln!("error binding {}: {e}", args.listen);
         std::process::exit(1)
     });
-    eprintln!("base listening on http://{}", args.listen);
+    eprintln!("morfem listening on http://{}", args.listen);
     axum::serve(listener, router).await.unwrap();
 }

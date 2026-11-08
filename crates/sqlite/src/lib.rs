@@ -1,6 +1,6 @@
-//! Native SQLite backend for base-engine (rusqlite).
+//! Native SQLite backend for morfem-engine (rusqlite).
 
-use base_engine::{Error, Result, Row, Stmt, Store, Val};
+use morfem_engine::{Error, Result, Row, Stmt, Store, Val};
 use rusqlite::types::{ToSqlOutput, ValueRef};
 use rusqlite::{params_from_iter, Connection, OpenFlags, TransactionBehavior};
 use std::path::Path;
@@ -56,7 +56,7 @@ impl SqliteStore {
         let mut conn = conn;
         let apply = |conn: &mut Connection| -> rusqlite::Result<()> {
             let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
-            tx.execute_batch(base_engine::SCHEMA)?;
+            tx.execute_batch(morfem_engine::SCHEMA)?;
             tx.commit()
         };
         apply(&mut conn).map_err(|e| Error::Internal(format!("schema: {e}")))?;
