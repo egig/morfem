@@ -7,6 +7,7 @@ Paths below are relative to this file's URL. The full documentation in one file 
 ## Docs
 
 - [Getting started](getting-started.md): run locally, deploy to Cloudflare Workers, first curl requests
+- [npm package](npm.md): `@egig/base`, run in-process on Node, Bun, Deno, browsers, Workers; custom stores
 - [HTTP API](api.md): endpoints, document and `_rev` rules, error format
 - [Queries](queries.md): `_all_docs`, Mango `_find` operators, indexes, `_changes`
 - [Transactions](transactions.md): `/_txn` reads, guards, ops, retry pattern

@@ -4,6 +4,8 @@ title: Getting started
 
 # Getting started
 
+No Rust? Use the [npm package](npm) instead: `npm i @egig/base`.
+
 ## Run natively
 
 ```sh

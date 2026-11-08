@@ -12,6 +12,10 @@ SQLite under the hood: `rusqlite` natively, D1 on Cloudflare Workers.
 | `crates/server` | Native axum binary (dev, self-host). |
 | `crates/worker` | Cloudflare Worker + D1 `Store`. |
 
+## Install (npm)
+
+`npm i @egig/base` embeds the DB in Node, Bun, Deno, browsers or Workers, with no Rust build. See [docs/npm.md](docs/npm.md).
+
 ## Run
 
 ```sh

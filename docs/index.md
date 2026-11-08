@@ -18,6 +18,7 @@ SQLite underneath: `rusqlite` natively, D1 on Cloudflare Workers.
 | page | covers |
 |---|---|
 | [Getting started](getting-started) | run locally, deploy to Cloudflare, first requests |
+| [npm package](npm) | typed SDK and HTTP-shaped handler for Node, Bun, Deno, browsers, Workers: `npm i @egig/base` |
 | [HTTP API](api) | every endpoint, request and response shapes, errors |
 | [Queries](queries) | `_all_docs`, Mango `_find`, indexes, `_changes` |
 | [Transactions](transactions) | `/_txn`, reads, guards, conflicts |
